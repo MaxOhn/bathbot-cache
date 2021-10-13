@@ -209,12 +209,6 @@ impl Cache {
                 self.del(key).await?
             }
             Event::RoleUpdate(e) => self.cache_role(&e.role, e.guild_id).await?,
-            Event::ShardConnected(_) => todo!(),
-            Event::ShardConnecting(_) => todo!(),
-            Event::ShardDisconnected(_) => todo!(),
-            Event::ShardIdentifying(_) => todo!(),
-            Event::ShardReconnecting(_) => todo!(),
-            Event::ShardResuming(_) => todo!(),
             Event::ThreadCreate(e) => self.cache_channel(e).await?,
             Event::ThreadDelete(e) => {
                 if let Channel::Guild(channel) = &e.0 {
