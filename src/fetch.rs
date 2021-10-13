@@ -17,41 +17,50 @@ use super::Cache;
 type FetchResult<T> = CacheResult<Option<T>>;
 
 impl Cache {
+    #[inline]
     pub async fn channel(&self, channel: ChannelId) -> FetchResult<CachedChannel> {
         self.get(channel.into()).await
     }
 
+    #[inline]
     pub async fn current_user(&self) -> FetchResult<CachedCurrentUser> {
         self.get(RedisKey::BotUser).await
     }
 
+    #[inline]
     pub async fn guild(&self, guild: GuildId) -> FetchResult<CachedGuild> {
         self.get(guild.into()).await
     }
 
-    pub async fn guild_members(&self, guild: GuildId) -> CacheResult<IntoMemberIter> {
+    #[inline]
+    pub async fn member(&self, guild: GuildId, user: UserId) -> FetchResult<CachedMember> {
+        self.get((guild, user).into()).await
+    }
+
+    #[inline]
+    pub async fn members(&self, guild: GuildId) -> CacheResult<IntoMemberIter> {
         let key = format!("{}{}:{}", GUILD_KEY, KEYS_SUFFIX, guild);
         let keys = self.get_members(key).await?;
 
         Ok(IntoMemberIter::new(keys))
     }
 
-    pub async fn member(&self, guild: GuildId, user: UserId) -> FetchResult<CachedMember> {
-        self.get((guild, user).into()).await
-    }
-
+    #[inline]
     pub async fn role(&self, role: RoleId) -> FetchResult<CachedRole> {
         self.get(role.into()).await
     }
 
+    #[inline]
     pub async fn shards(&self) -> FetchResult<u64> {
         self.get(RedisKey::Shards).await
     }
 
+    #[inline]
     pub async fn sessions(&self) -> FetchResult<HashMap<String, SessionInfo>> {
         self.get(RedisKey::Sessions).await
     }
 
+    #[inline]
     pub async fn user(&self, user: UserId) -> FetchResult<CachedUser> {
         self.get(user.into()).await
     }

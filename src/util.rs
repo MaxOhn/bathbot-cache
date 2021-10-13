@@ -16,12 +16,14 @@ use crate::{
 use super::Cache;
 
 impl Cache {
+    #[inline]
     pub async fn is_guild_owner(&self, guild: GuildId, user: UserId) -> CacheResult<bool> {
         let guild = self.guild(guild).await?.ok_or(CacheError::MissingGuild)?;
 
         Ok(guild.owner_id == user)
     }
 
+    #[inline]
     pub async fn contains(&self, key: impl Into<RedisKey>) -> CacheResult<bool> {
         Ok(self.redis.get().await?.exists(key.into()).await?)
     }

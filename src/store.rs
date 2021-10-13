@@ -40,19 +40,23 @@ impl Cache {
         self.set(member.into(), MemberWrapper::from(member)).await
     }
 
+    #[inline]
     pub async fn cache_role(&self, role: &Role, guild: GuildId) -> CacheResult<()> {
         self.set((role, guild).into(), RoleWrapper::from(role))
             .await
     }
 
+    #[inline]
     pub async fn cache_shards(&self, shards: u64) -> CacheResult<()> {
         self.set(RedisKey::Shards, shards).await
     }
 
+    #[inline]
     pub async fn cache_sessions(&self, sessions: &HashMap<String, SessionInfo>) -> CacheResult<()> {
         self.set(RedisKey::Sessions, sessions).await
     }
 
+    #[inline]
     pub async fn cache_user(&self, user: &User) -> CacheResult<()> {
         self.set(user.into(), UserWrapper::from(user)).await
     }

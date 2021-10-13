@@ -24,6 +24,7 @@ pub enum CachedChannel {
 }
 
 impl CachedChannel {
+    #[inline]
     pub const fn guild_id(&self) -> Option<GuildId> {
         match self {
             Self::PrivateThread(c) => c.guild_id,
@@ -32,6 +33,7 @@ impl CachedChannel {
         }
     }
 
+    #[inline]
     pub const fn id(&self) -> ChannelId {
         match self {
             Self::PrivateThread(c) => c.id,
