@@ -1,0 +1,12 @@
+[package]
+authors = ["MaxOhn <ohn.m@hotmail.de>"]
+name = "bathbot-cache"
+version = "0.1.0"
+edition = "2018"
+
+[dependencies]
+deadpool-redis = { version = "0.9", default-features = false, features = ["rt_tokio_1"] }
+hashbrown = { version = "0.11", default-features = false, features = ["ahash", "inline-more", "serde"] }
+serde = { version = "1.0", default-features = false }
+serde_cbor = { version = "0.11", default-features = false, features = ["std"] }
+twilight-model = { version = "0.6", default-features = false }
