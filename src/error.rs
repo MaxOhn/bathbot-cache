@@ -10,7 +10,6 @@ pub enum CacheError {
     Cbor(CborError),
     CreatePool(CreatePoolError),
     MissingGuild,
-    ParseRedisKey(String),
     Pool(PoolError),
     Redis(RedisError),
 }
@@ -21,7 +20,6 @@ impl fmt::Display for CacheError {
             Self::Cbor(_) => f.write_str("cbor error"),
             Self::CreatePool(_) => f.write_str("failed to create redis pool"),
             Self::MissingGuild => f.write_str("guild is not cached"),
-            Self::ParseRedisKey(key) => write!(f, "failed to parse `{}` into RedisKey", key),
             Self::Pool(_) => f.write_str("redis pool error"),
             Self::Redis(_) => f.write_str("redis error"),
         }
@@ -34,7 +32,6 @@ impl Error for CacheError {
             Self::Cbor(e) => Some(e),
             Self::CreatePool(e) => Some(e),
             Self::MissingGuild => None,
-            Self::ParseRedisKey(_) => None,
             Self::Pool(e) => Some(e),
             Self::Redis(e) => Some(e),
         }

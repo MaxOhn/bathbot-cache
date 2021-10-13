@@ -167,3 +167,11 @@ fn filter_member_key(key: RedisKey) -> Option<UserId> {
         None
     }
 }
+
+pub struct CacheStats {
+    pub channels: usize,
+    pub guilds: usize,
+    pub members: usize,
+    pub roles: usize,
+    pub users: usize,
+}
