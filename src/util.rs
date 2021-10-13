@@ -3,7 +3,7 @@ use twilight_model::id::{GuildId, UserId};
 
 use crate::{
     constants::{CHANNEL_KEY, GUILD_KEY, KEYS_SUFFIX, MEMBER_KEY, ROLE_KEY, USER_KEY},
-    model::CacheStats,
+    model::{CacheStats, RedisKey},
     CacheError, CacheResult,
 };
 
@@ -14,6 +14,10 @@ impl Cache {
         let guild = self.guild(guild).await?.ok_or(CacheError::MissingGuild)?;
 
         Ok(guild.owner_id == user)
+    }
+
+    pub async fn contains(&self, key: impl Into<RedisKey>) -> CacheResult<bool> {
+        Ok(self.redis.get().await?.exists(key.into()).await?)
     }
 
     pub async fn stats(&self) -> CacheResult<CacheStats> {

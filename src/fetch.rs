@@ -16,6 +16,13 @@ use super::Cache;
 type FetchResult<T> = CacheResult<Option<T>>;
 
 impl Cache {
+    pub async fn fetch<T>(&self, key: impl Into<RedisKey>) -> FetchResult<T>
+    where
+        T: DeserializeOwned,
+    {
+        self.get(key.into()).await
+    }
+
     pub async fn member(&self, guild: GuildId, user: UserId) -> FetchResult<CachedMember> {
         self.get((guild, user).into()).await
     }
