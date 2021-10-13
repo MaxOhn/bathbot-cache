@@ -14,7 +14,7 @@ use twilight_model::{
 };
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub enum CachedGuildChannel {
+pub enum CachedChannel {
     #[serde(rename = "a")]
     PrivateThread(CachedThread),
     #[serde(rename = "b")]
@@ -23,7 +23,7 @@ pub enum CachedGuildChannel {
     Text(CachedTextChannel),
 }
 
-impl CachedGuildChannel {
+impl CachedChannel {
     pub const fn guild_id(&self) -> Option<GuildId> {
         match self {
             Self::PrivateThread(c) => c.guild_id,

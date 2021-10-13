@@ -13,7 +13,7 @@ use crate::constants::{
     BOT_USER_KEY, CHANNEL_KEY, GUILD_KEY, MEMBER_KEY, ROLE_KEY, SESSIONS_KEY, USER_KEY,
 };
 
-use super::{BasicGuildChannel, CachedGuildChannel, MemberWrapper};
+use super::{BasicGuildChannel, CachedChannel, MemberWrapper};
 
 #[derive(Copy, Clone)]
 pub enum RedisKey {
@@ -59,8 +59,8 @@ impl ToRedisArgs for RedisKey {
     }
 }
 
-impl From<&CachedGuildChannel> for RedisKey {
-    fn from(channel: &CachedGuildChannel) -> Self {
+impl From<&CachedChannel> for RedisKey {
+    fn from(channel: &CachedChannel) -> Self {
         Self::Channel {
             guild: channel.guild_id(),
             channel: channel.id(),
