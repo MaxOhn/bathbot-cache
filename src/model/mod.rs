@@ -175,3 +175,9 @@ pub struct CacheStats {
     pub roles: usize,
     pub users: usize,
 }
+
+pub enum MemberLookup {
+    Found(CachedMember),
+    NotChecked,
+    NotFound,
+}

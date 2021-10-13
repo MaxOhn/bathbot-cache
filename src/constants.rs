@@ -8,3 +8,5 @@ pub(crate) const MEMBER_KEY: &str = "member";
 pub(crate) const USER_KEY: &str = "user";
 
 pub(crate) const KEYS_SUFFIX: &str = "_keys";
+
+pub(crate) const OWNER_USER_ID: u64 = 219905108316520448;
