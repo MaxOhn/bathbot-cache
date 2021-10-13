@@ -41,6 +41,15 @@ impl CachedChannel {
             Self::Text(c) => c.id,
         }
     }
+
+    #[inline]
+    pub fn name(&self) -> &str {
+        match self {
+            Self::PrivateThread(c) => c.name.as_str(),
+            Self::PublicThread(c) => c.name.as_str(),
+            Self::Text(c) => c.name.as_str(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
