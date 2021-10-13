@@ -1,4 +1,5 @@
 pub(crate) const SESSIONS_KEY: &str = "gateway_sessions";
+pub(crate) const SHARDS_KEY: &str = "gateway_shards";
 
 pub(crate) const BOT_USER_KEY: &str = "bot_user";
 pub(crate) const GUILD_KEY: &str = "guild";

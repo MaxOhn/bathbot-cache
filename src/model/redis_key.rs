@@ -10,7 +10,7 @@ use twilight_model::{
 };
 
 use crate::constants::{
-    BOT_USER_KEY, CHANNEL_KEY, GUILD_KEY, MEMBER_KEY, ROLE_KEY, SESSIONS_KEY, USER_KEY,
+    BOT_USER_KEY, CHANNEL_KEY, GUILD_KEY, MEMBER_KEY, ROLE_KEY, SESSIONS_KEY, SHARDS_KEY, USER_KEY,
 };
 
 use super::{BasicGuildChannel, CachedChannel, MemberWrapper};
@@ -34,6 +34,7 @@ pub enum RedisKey {
         role: RoleId,
     },
     Sessions,
+    Shards,
     User {
         user: UserId,
     },
@@ -48,6 +49,7 @@ impl fmt::Display for RedisKey {
             Self::Member { guild, user } => write!(f, "{}:{}:{}", MEMBER_KEY, guild, user),
             Self::Role { role, .. } => write!(f, "{}:{}", ROLE_KEY, role),
             Self::Sessions => f.write_str(SESSIONS_KEY),
+            Self::Shards => f.write_str(SHARDS_KEY),
             Self::User { user } => write!(f, "{}:{}", USER_KEY, user),
         }
     }

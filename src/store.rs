@@ -25,8 +25,40 @@ use crate::{
 use super::Cache;
 
 impl Cache {
-    pub async fn update(&self, event: Event) -> CacheResult<()> {
-        match &event {
+    pub async fn cache_channel(&self, channel: &Channel) -> CacheResult<()> {
+        if let Channel::Guild(channel) = channel {
+            if let Some(c) = BasicGuildChannel::from(channel) {
+                self.set(RedisKey::from(&c), c).await?;
+            }
+        }
+
+        Ok(())
+    }
+
+    pub async fn cache_member(&self, member: &Member) -> CacheResult<()> {
+        self.cache_user(&member.user).await?;
+        self.set(member.into(), MemberWrapper::from(member)).await
+    }
+
+    pub async fn cache_role(&self, role: &Role, guild: GuildId) -> CacheResult<()> {
+        self.set((role, guild).into(), RoleWrapper::from(role))
+            .await
+    }
+
+    pub async fn cache_shards(&self, shards: u64) -> CacheResult<()> {
+        self.set(RedisKey::Shards, shards).await
+    }
+
+    pub async fn cache_sessions(&self, sessions: &HashMap<String, SessionInfo>) -> CacheResult<()> {
+        self.set(RedisKey::Sessions, sessions).await
+    }
+
+    pub async fn cache_user(&self, user: &User) -> CacheResult<()> {
+        self.set(user.into(), UserWrapper::from(user)).await
+    }
+
+    pub async fn update(&self, event: &Event) -> CacheResult<()> {
+        match event {
             Event::ChannelCreate(e) => self.cache_channel(e).await?,
             Event::ChannelDelete(e) => {
                 if let Channel::Guild(channel) = &e.0 {
@@ -335,39 +367,10 @@ impl Cache {
 
         Ok(())
     }
-
-    pub async fn cache_channel(&self, channel: &Channel) -> CacheResult<()> {
-        if let Channel::Guild(channel) = channel {
-            if let Some(c) = BasicGuildChannel::from(channel) {
-                self.set(RedisKey::from(&c), c).await?;
-            }
-        }
-
-        Ok(())
-    }
-
-    pub async fn cache_member(&self, member: &Member) -> CacheResult<()> {
-        self.cache_user(&member.user).await?;
-        self.set(member.into(), MemberWrapper::from(member)).await
-    }
-
-    pub async fn cache_user(&self, user: &User) -> CacheResult<()> {
-        self.set(user.into(), UserWrapper::from(user)).await
-    }
-
-    pub async fn cache_role(&self, role: &Role, guild: GuildId) -> CacheResult<()> {
-        self.set((role, guild).into(), RoleWrapper::from(role))
-            .await
-    }
-
-    pub async fn cache_sessions(&self, sessions: &HashMap<String, SessionInfo>) -> CacheResult<()> {
-        self.set(RedisKey::Sessions, sessions).await
-    }
 }
 
 fn populate_members(key: &RedisKey, members: &mut HashMap<String, Vec<RedisKey>>) {
     match &key {
-        RedisKey::BotUser => {}
         RedisKey::Channel { guild, .. } => {
             populate_member(format!("{}{}", CHANNEL_KEY, KEYS_SUFFIX), *key, members);
 
@@ -401,10 +404,11 @@ fn populate_members(key: &RedisKey, members: &mut HashMap<String, Vec<RedisKey>>
                 );
             }
         }
-        RedisKey::Sessions => {}
+        RedisKey::Shards => {}
         RedisKey::User { .. } => {
             populate_member(format!("{}{}", USER_KEY, KEYS_SUFFIX), *key, members)
         }
+        _ => {}
     }
 }
 
