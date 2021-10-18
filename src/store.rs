@@ -14,7 +14,7 @@ use twilight_model::{
 };
 
 use crate::{
-    constants::{CHANNEL_KEY, GUILD_KEY, KEYS_SUFFIX, MEMBER_KEY, ROLE_KEY, USER_KEY},
+    constants::{CHANNEL_KEY, GUILD_KEY, KEYS_SUFFIX, MEMBER_KEY, ROLE_KEY},
     model::{
         BasicGuildChannel, CurrentUserWrapper, GuildWrapper, MemberWrapper, PartialGuildWrapper,
         PartialMemberWrapper, RedisKey, RoleWrapper, SessionInfo, UserWrapper,
@@ -58,7 +58,8 @@ impl Cache {
 
     #[inline]
     pub async fn cache_user(&self, user: &User) -> CacheResult<()> {
-        self.set(user.into(), UserWrapper::from(user)).await
+        self.set_with_expire(user.into(), UserWrapper::from(user), self.user_expire)
+            .await
     }
 
     pub async fn update(&self, event: &Event) -> CacheResult<()> {
@@ -91,15 +92,6 @@ impl Cache {
                     .map(|role| (RedisKey::from((role, e.id)), RoleWrapper::from(role)));
 
                 self.set_all(roles).await?;
-
-                // Cache users
-                let users = e
-                    .members
-                    .iter()
-                    .map(|member| UserWrapper::from(&member.user))
-                    .map(|user| (RedisKey::from(user.0.id), user));
-
-                self.set_all(users).await?;
 
                 // Cache members
                 let members = e
@@ -324,6 +316,17 @@ impl Cache {
         Ok(())
     }
 
+    async fn set_with_expire<T>(&self, key: RedisKey, value: T, seconds: usize) -> CacheResult<()>
+    where
+        T: Serialize,
+    {
+        let bytes = serde_cbor::to_vec(&value)?;
+        let mut conn = self.redis.get().await?;
+        conn.set_ex(key, bytes, seconds).await?;
+
+        Ok(())
+    }
+
     async fn del(&self, key: RedisKey) -> CacheResult<()> {
         self.del_all(iter::once(key)).await?;
 
@@ -403,9 +406,6 @@ fn populate_members(key: &RedisKey, members: &mut HashMap<String, Vec<RedisKey>>
             }
         }
         RedisKey::Shards => {}
-        RedisKey::User { .. } => {
-            populate_member(format!("{}{}", USER_KEY, KEYS_SUFFIX), *key, members)
-        }
         _ => {}
     }
 }
