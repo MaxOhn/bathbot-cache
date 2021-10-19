@@ -4,7 +4,7 @@ use serde::de::DeserializeOwned;
 use twilight_model::id::{ChannelId, GuildId, RoleId, UserId};
 
 use crate::{
-    constants::{GUILD_KEY, KEYS_SUFFIX},
+    constants::GUILD_KEYS,
     model::{
         CachedChannel, CachedCurrentUser, CachedGuild, CachedMember, CachedRole, IntoMemberIter,
         RedisKey, SessionInfo,
@@ -39,7 +39,7 @@ impl Cache {
 
     #[inline]
     pub async fn members(&self, guild: GuildId) -> CacheResult<IntoMemberIter> {
-        let key = format!("{}{}:{}", GUILD_KEY, KEYS_SUFFIX, guild);
+        let key = format!("{}:{}", GUILD_KEYS, guild);
         let keys = self.get_members(key).await?;
 
         Ok(IntoMemberIter::new(keys))

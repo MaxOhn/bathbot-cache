@@ -1,4 +1,4 @@
-use std::iter;
+use std::{borrow::Cow, iter};
 
 use deadpool_redis::redis::AsyncCommands;
 use hashbrown::HashMap;
@@ -13,7 +13,7 @@ use twilight_model::{
 };
 
 use crate::{
-    constants::{CHANNEL_KEY, GUILD_KEY, KEYS_SUFFIX, MEMBER_KEY, ROLE_KEY},
+    constants::{CHANNEL_KEYS, GUILD_KEYS, MEMBER_KEYS, ROLE_KEYS},
     model::{
         BasicGuildChannel, CurrentUserWrapper, GuildWrapper, MemberWrapper, PartialGuildWrapper,
         PartialMemberWrapper, RedisKey, RoleWrapper, SessionInfo,
@@ -264,7 +264,7 @@ impl Cache {
         conn.set_multiple(&keys).await?;
 
         for (key, value) in members {
-            conn.sadd(key, value).await?;
+            conn.sadd(key.as_ref(), value).await?;
         }
 
         Ok(())
@@ -278,7 +278,7 @@ impl Cache {
         conn.del(key).await?;
 
         for (key, value) in members {
-            conn.srem(key, value).await?;
+            conn.srem(key.as_ref(), value).await?;
         }
 
         Ok(())
@@ -303,7 +303,7 @@ impl Cache {
         conn.del(keys).await?;
 
         for (key, value) in members {
-            conn.srem(key, value).await?;
+            conn.srem(key.as_ref(), value).await?;
         }
 
         Ok(())
@@ -311,7 +311,7 @@ impl Cache {
 
     async fn clear_guild(&self, guild: GuildId) -> CacheResult<()> {
         let members = self
-            .get_members::<RedisKey>(format!("{}{}:{}", GUILD_KEY, KEYS_SUFFIX, guild))
+            .get_members::<RedisKey>(format!("{}:{}", GUILD_KEYS, guild))
             .await?;
 
         self.del_all(members).await?;
@@ -321,45 +321,36 @@ impl Cache {
     }
 }
 
-fn populate_members(key: &RedisKey, members: &mut HashMap<String, Vec<RedisKey>>) {
-    match &key {
+type RedisMembers = HashMap<Cow<'static, str>, Vec<RedisKey>>;
+
+fn populate_members(key: &RedisKey, members: &mut RedisMembers) {
+    match key {
         RedisKey::Channel { guild, .. } => {
-            populate_member(format!("{}{}", CHANNEL_KEY, KEYS_SUFFIX), *key, members);
+            populate_member(CHANNEL_KEYS, *key, members);
 
             if let Some(guild) = guild {
-                populate_member(
-                    format!("{}{}:{}", GUILD_KEY, KEYS_SUFFIX, guild),
-                    *key,
-                    members,
-                );
+                populate_member(format!("{}:{}", GUILD_KEYS, guild), *key, members);
             }
         }
-        RedisKey::Guild { .. } => {
-            populate_member(format!("{}{}", GUILD_KEY, KEYS_SUFFIX), *key, members)
-        }
+        RedisKey::Guild { .. } => populate_member(GUILD_KEYS, *key, members),
         RedisKey::Member { guild, .. } => {
-            populate_member(format!("{}{}", MEMBER_KEY, KEYS_SUFFIX), *key, members);
-            populate_member(
-                format!("{}{}:{}", GUILD_KEY, KEYS_SUFFIX, guild),
-                *key,
-                members,
-            );
+            populate_member(MEMBER_KEYS, *key, members);
+            populate_member(format!("{}:{}", GUILD_KEYS, guild), *key, members);
         }
         RedisKey::Role { guild, .. } => {
-            populate_member(format!("{}{}", ROLE_KEY, KEYS_SUFFIX), *key, members);
+            populate_member(ROLE_KEYS, *key, members);
 
             if let Some(guild) = guild {
-                populate_member(
-                    format!("{}{}:{}", GUILD_KEY, KEYS_SUFFIX, guild),
-                    *key,
-                    members,
-                );
+                populate_member(format!("{}:{}", GUILD_KEYS, guild), *key, members);
             }
         }
         _ => {}
     }
 }
 
-fn populate_member(key: String, value: RedisKey, members: &mut HashMap<String, Vec<RedisKey>>) {
-    members.entry(key).or_insert_with(Vec::new).push(value)
+fn populate_member(key: impl Into<Cow<'static, str>>, value: RedisKey, members: &mut RedisMembers) {
+    members
+        .entry(key.into())
+        .or_insert_with(Vec::new)
+        .push(value)
 }

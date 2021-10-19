@@ -6,7 +6,7 @@ use twilight_model::{
 };
 
 use crate::{
-    constants::{CHANNEL_KEY, GUILD_KEY, KEYS_SUFFIX, MEMBER_KEY, OWNER_USER_ID, ROLE_KEY},
+    constants::{CHANNEL_KEYS, GUILD_KEYS, MEMBER_KEYS, OWNER_USER_ID, ROLE_KEYS},
     model::{CacheStats, CachedChannel, CachedMember, CachedTextChannel, MemberLookup, RedisKey},
     CacheError, CacheResult,
 };
@@ -30,12 +30,10 @@ impl Cache {
         let mut conn = self.redis.get().await?;
 
         let stats = CacheStats {
-            channels: conn
-                .scard(format!("{}{}", CHANNEL_KEY, KEYS_SUFFIX))
-                .await?,
-            guilds: conn.scard(format!("{}{}", GUILD_KEY, KEYS_SUFFIX)).await?,
-            members: conn.scard(format!("{}{}", MEMBER_KEY, KEYS_SUFFIX)).await?,
-            roles: conn.scard(format!("{}{}", ROLE_KEY, KEYS_SUFFIX)).await?,
+            channels: conn.scard(CHANNEL_KEYS).await?,
+            guilds: conn.scard(GUILD_KEYS).await?,
+            members: conn.scard(MEMBER_KEYS).await?,
+            roles: conn.scard(ROLE_KEYS).await?,
         };
 
         Ok(stats)
