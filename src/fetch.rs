@@ -56,7 +56,7 @@ impl Cache {
     }
 
     #[inline]
-    pub async fn sessions(&self) -> FetchResult<HashMap<String, SessionInfo>> {
+    pub async fn sessions(&self) -> FetchResult<HashMap<u64, SessionInfo>> {
         self.get(RedisKey::Sessions).await
     }
 
