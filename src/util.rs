@@ -6,9 +6,7 @@ use twilight_model::{
 };
 
 use crate::{
-    constants::{
-        CHANNEL_KEY, GUILD_KEY, KEYS_SUFFIX, MEMBER_KEY, OWNER_USER_ID, ROLE_KEY, USER_KEY,
-    },
+    constants::{CHANNEL_KEY, GUILD_KEY, KEYS_SUFFIX, MEMBER_KEY, OWNER_USER_ID, ROLE_KEY},
     model::{CacheStats, CachedChannel, CachedMember, CachedTextChannel, MemberLookup, RedisKey},
     CacheError, CacheResult,
 };
@@ -38,7 +36,6 @@ impl Cache {
             guilds: conn.scard(format!("{}{}", GUILD_KEY, KEYS_SUFFIX)).await?,
             members: conn.scard(format!("{}{}", MEMBER_KEY, KEYS_SUFFIX)).await?,
             roles: conn.scard(format!("{}{}", ROLE_KEY, KEYS_SUFFIX)).await?,
-            users: conn.scard(format!("{}{}", USER_KEY, KEYS_SUFFIX)).await?,
         };
 
         Ok(stats)

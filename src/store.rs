@@ -10,14 +10,13 @@ use twilight_model::{
     gateway::event::Event,
     guild::{Member, Role},
     id::GuildId,
-    user::User,
 };
 
 use crate::{
     constants::{CHANNEL_KEY, GUILD_KEY, KEYS_SUFFIX, MEMBER_KEY, ROLE_KEY},
     model::{
         BasicGuildChannel, CurrentUserWrapper, GuildWrapper, MemberWrapper, PartialGuildWrapper,
-        PartialMemberWrapper, RedisKey, RoleWrapper, SessionInfo, UserWrapper,
+        PartialMemberWrapper, RedisKey, RoleWrapper, SessionInfo,
     },
     CacheResult,
 };
@@ -36,13 +35,12 @@ impl Cache {
     }
 
     pub async fn cache_member(&self, member: &Member) -> CacheResult<()> {
-        self.cache_user(&member.user).await?;
         self.set(member.into(), MemberWrapper::from(member)).await
     }
 
     #[inline]
     pub async fn cache_role(&self, role: &Role, guild: GuildId) -> CacheResult<()> {
-        self.set((role, guild).into(), RoleWrapper::from(role))
+        self.set((guild, role.id).into(), RoleWrapper::from(role))
             .await
     }
 
@@ -52,14 +50,8 @@ impl Cache {
     }
 
     #[inline]
-    pub async fn cache_sessions(&self, sessions: &HashMap<String, SessionInfo>) -> CacheResult<()> {
+    pub async fn cache_sessions(&self, sessions: &HashMap<u64, SessionInfo>) -> CacheResult<()> {
         self.set(RedisKey::Sessions, sessions).await
-    }
-
-    #[inline]
-    pub async fn cache_user(&self, user: &User) -> CacheResult<()> {
-        self.set_with_expire(user.into(), UserWrapper::from(user), self.user_expire)
-            .await
     }
 
     pub async fn update(&self, event: &Event) -> CacheResult<()> {
@@ -77,33 +69,33 @@ impl Cache {
                 self.clear_guild(e.id).await?;
 
                 // Cache channels
-                let channels = e
-                    .channels
-                    .iter()
-                    .filter_map(BasicGuildChannel::from)
-                    .map(|channel| (RedisKey::from(&channel), channel));
-
                 if !e.channels.is_empty() {
+                    let channels = e
+                        .channels
+                        .iter()
+                        .filter_map(BasicGuildChannel::from)
+                        .map(|channel| (RedisKey::from(&channel), channel));
+
                     self.set_all(channels).await?;
                 }
 
                 // Cache roles
-                let roles = e
-                    .roles
-                    .iter()
-                    .map(|role| (RedisKey::from((role, e.id)), RoleWrapper::from(role)));
-
                 if !e.roles.is_empty() {
+                    let roles = e
+                        .roles
+                        .iter()
+                        .map(|role| (RedisKey::from((e.id, role.id)), RoleWrapper::from(role)));
+
                     self.set_all(roles).await?;
                 }
 
                 // Cache members
-                let members = e
-                    .members
-                    .iter()
-                    .map(|member| (RedisKey::from(member), MemberWrapper::from(member)));
-
                 if !e.members.is_empty() {
+                    let members = e
+                        .members
+                        .iter()
+                        .map(|member| (RedisKey::from(member), MemberWrapper::from(member)));
+
                     self.set_all(members).await?;
                 }
 
@@ -116,46 +108,29 @@ impl Cache {
                     .await?
             }
             Event::InteractionCreate(e) => {
-                let (guild, member, user) = match &e.0 {
-                    Interaction::ApplicationCommand(data) => {
-                        (data.guild_id, &data.member, &data.user)
-                    }
-                    Interaction::MessageComponent(data) => {
-                        (data.guild_id, &data.member, &data.user)
-                    }
+                let (guild, member) = match &e.0 {
+                    Interaction::ApplicationCommand(data) => (data.guild_id, &data.member),
+                    Interaction::MessageComponent(data) => (data.guild_id, &data.member),
                     _ => return Ok(()),
                 };
 
-                if let Some(user) = user {
-                    self.cache_user(user).await?;
-                }
-
                 if let (Some(member), Some(guild)) = (member, guild) {
                     if let Some(user) = &member.user {
-                        self.cache_user(user).await?;
-
                         let key = RedisKey::from((guild, user.id));
-                        let member = PartialMemberWrapper::from((member, guild, user.id));
+                        let member = PartialMemberWrapper::from((member, guild, user));
                         self.set(key, member).await?;
                     }
                 }
             }
             Event::MemberAdd(e) => self.cache_member(e).await?,
-            Event::MemberRemove(e) => {
-                let key = RedisKey::Member {
-                    guild: e.guild_id,
-                    user: e.user.id,
-                };
-
-                self.del(key).await?
-            }
+            Event::MemberRemove(e) => self.del(RedisKey::from((e.guild_id, e.user.id))).await?,
             Event::MemberUpdate(e) => {
-                self.cache_user(&e.user).await?;
-
                 if let Some(mut member) = self.member(e.guild_id, e.user.id).await? {
                     member.nick = e.nick.clone();
                     member.roles = e.roles.clone();
                     member.user_id = e.user.id;
+                    // I don't want to clone the String :/
+                    // member.username = e.user.name.to_owned();
                     let key = RedisKey::from((e.guild_id, e.user.id));
                     self.set(key, member).await?;
                 }
@@ -169,10 +144,11 @@ impl Cache {
 
                 self.set_all(keys).await?;
             }
-            Event::MessageCreate(e) => self.cache_user(&e.author).await?,
-            Event::MessageUpdate(e) => {
-                if let Some(user) = &e.author {
-                    self.cache_user(user).await?;
+            Event::MessageCreate(e) => {
+                if let (Some(member), Some(guild)) = (&e.member, e.guild_id) {
+                    let key = RedisKey::from((guild, e.author.id));
+                    let member = PartialMemberWrapper::from((member, guild, &e.author));
+                    self.set(key, member).await?;
                 }
             }
             Event::ReactionAdd(e) => {
@@ -190,14 +166,7 @@ impl Cache {
                     .await?;
             }
             Event::RoleCreate(e) => self.cache_role(&e.role, e.guild_id).await?,
-            Event::RoleDelete(e) => {
-                let key = RedisKey::Role {
-                    guild: Some(e.guild_id),
-                    role: e.role_id,
-                };
-
-                self.del(key).await?
-            }
+            Event::RoleDelete(e) => self.del(RedisKey::from((e.guild_id, e.role_id))).await?,
             Event::RoleUpdate(e) => self.cache_role(&e.role, e.guild_id).await?,
             Event::ThreadCreate(e) => self.cache_channel(e).await?,
             Event::ThreadDelete(e) => {
@@ -209,31 +178,31 @@ impl Cache {
             }
             Event::ThreadListSync(e) => {
                 // Cache members
-                let keys = e
-                    .members
-                    .iter()
-                    .filter_map(|member| member.member.as_ref())
-                    .map(MemberWrapper::from)
-                    .map(|member| (RedisKey::from(&member), member));
-
                 if !e.members.is_empty() {
+                    let keys = e
+                        .members
+                        .iter()
+                        .filter_map(|member| member.member.as_ref())
+                        .map(MemberWrapper::from)
+                        .map(|member| (RedisKey::from(&member), member));
+
                     self.set_all(keys).await?;
                 }
 
                 // Cache channels
-                let keys = e
-                    .threads
-                    .iter()
-                    .filter_map(|c| {
-                        if let Channel::Guild(channel) = c {
-                            BasicGuildChannel::from(channel)
-                        } else {
-                            None
-                        }
-                    })
-                    .map(|channel| (RedisKey::from(&channel), channel));
-
                 if !e.threads.is_empty() {
+                    let keys = e
+                        .threads
+                        .iter()
+                        .filter_map(|c| {
+                            if let Channel::Guild(channel) = c {
+                                BasicGuildChannel::from(channel)
+                            } else {
+                                None
+                            }
+                        })
+                        .map(|channel| (RedisKey::from(&channel), channel));
+
                     self.set_all(keys).await?;
                 }
             }
@@ -243,14 +212,14 @@ impl Cache {
                 }
             }
             Event::ThreadMembersUpdate(e) => {
-                let keys = e
-                    .added_members
-                    .iter()
-                    .filter_map(|member| member.member.as_ref())
-                    .map(MemberWrapper::from)
-                    .map(|member| (RedisKey::from(&member), member));
-
                 if !e.added_members.is_empty() {
+                    let keys = e
+                        .added_members
+                        .iter()
+                        .filter_map(|member| member.member.as_ref())
+                        .map(MemberWrapper::from)
+                        .map(|member| (RedisKey::from(&member), member));
+
                     self.set_all(keys).await?;
                 }
             }
@@ -301,19 +270,16 @@ impl Cache {
         Ok(())
     }
 
-    async fn set_with_expire<T>(&self, key: RedisKey, value: T, seconds: usize) -> CacheResult<()>
-    where
-        T: Serialize,
-    {
-        let bytes = serde_cbor::to_vec(&value)?;
-        let mut conn = self.redis.get().await?;
-        conn.set_ex(key, bytes, seconds).await?;
-
-        Ok(())
-    }
-
     async fn del(&self, key: RedisKey) -> CacheResult<()> {
-        self.del_all(iter::once(key)).await?;
+        let mut members = HashMap::new();
+        populate_members(&key, &mut members);
+
+        let mut conn = self.redis.get().await?;
+        conn.del(key).await?;
+
+        for (key, value) in members {
+            conn.srem(key, value).await?;
+        }
 
         Ok(())
     }
@@ -390,7 +356,6 @@ fn populate_members(key: &RedisKey, members: &mut HashMap<String, Vec<RedisKey>>
                 );
             }
         }
-        RedisKey::Shards => {}
         _ => {}
     }
 }

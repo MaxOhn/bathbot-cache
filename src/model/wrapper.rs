@@ -5,7 +5,7 @@ use twilight_model::{
         GuildChannel, TextChannel,
     },
     guild::{Guild, Member, PartialGuild, PartialMember, Role},
-    id::{ChannelId, GuildId, UserId},
+    id::{ChannelId, GuildId},
     user::{CurrentUser, User},
 };
 
@@ -137,11 +137,11 @@ impl<'m> Serialize for MemberWrapper<'m> {
 pub struct PartialMemberWrapper<'m> {
     guild: GuildId,
     member: &'m PartialMember,
-    user: UserId,
+    user: &'m User,
 }
 
-impl<'m> From<(&'m PartialMember, GuildId, UserId)> for PartialMemberWrapper<'m> {
-    fn from((member, guild, user): (&'m PartialMember, GuildId, UserId)) -> Self {
+impl<'m> From<(&'m PartialMember, GuildId, &'m User)> for PartialMemberWrapper<'m> {
+    fn from((member, guild, user): (&'m PartialMember, GuildId, &'m User)) -> Self {
         Self {
             member,
             guild,
@@ -165,7 +165,8 @@ impl<'m> Serialize for PartialMemberWrapper<'m> {
             member.serialize_field("c", &self.member.roles)?;
         }
 
-        member.serialize_field("d", &self.user)?;
+        member.serialize_field("d", &self.user.id)?;
+        member.serialize_field("e", &self.user.name)?;
 
         member.end()
     }

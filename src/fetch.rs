@@ -6,8 +6,8 @@ use twilight_model::id::{ChannelId, GuildId, RoleId, UserId};
 use crate::{
     constants::{GUILD_KEY, KEYS_SUFFIX},
     model::{
-        CachedChannel, CachedCurrentUser, CachedGuild, CachedMember, CachedRole, CachedUser,
-        IntoMemberIter, RedisKey, SessionInfo,
+        CachedChannel, CachedCurrentUser, CachedGuild, CachedMember, CachedRole, IntoMemberIter,
+        RedisKey, SessionInfo,
     },
     CacheResult,
 };
@@ -58,11 +58,6 @@ impl Cache {
     #[inline]
     pub async fn sessions(&self) -> FetchResult<HashMap<String, SessionInfo>> {
         self.get(RedisKey::Sessions).await
-    }
-
-    #[inline]
-    pub async fn user(&self, user: UserId) -> FetchResult<CachedUser> {
-        self.get(user.into()).await
     }
 
     async fn get<T>(&self, key: RedisKey) -> FetchResult<T>

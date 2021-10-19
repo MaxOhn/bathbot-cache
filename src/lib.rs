@@ -16,15 +16,10 @@ pub use error::{CacheError, CacheResult};
 
 pub struct Cache {
     redis: Pool,
-    user_expire: usize,
 }
 
 impl Cache {
-    pub fn new(
-        host: impl Display,
-        port: impl Display,
-        user_expire_seconds: usize,
-    ) -> CacheResult<Self> {
+    pub fn new(host: impl Display, port: impl Display) -> CacheResult<Self> {
         let config = Config {
             url: Some(format!("redis://{}:{}", host, port)),
             connection: None,
@@ -33,9 +28,6 @@ impl Cache {
 
         let redis = config.create_pool()?;
 
-        Ok(Self {
-            redis,
-            user_expire: user_expire_seconds,
-        })
+        Ok(Self { redis })
     }
 }
