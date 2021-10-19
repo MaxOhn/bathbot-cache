@@ -129,6 +129,7 @@ impl<'m> Serialize for MemberWrapper<'m> {
         }
 
         member.serialize_field("d", &self.0.user.id)?;
+        member.serialize_field("e", &self.0.user.name)?;
 
         member.end()
     }
@@ -169,35 +170,6 @@ impl<'m> Serialize for PartialMemberWrapper<'m> {
         member.serialize_field("e", &self.user.name)?;
 
         member.end()
-    }
-}
-
-pub struct UserWrapper<'u>(pub &'u User);
-
-impl<'u> From<&'u User> for UserWrapper<'u> {
-    fn from(user: &'u User) -> Self {
-        Self(user)
-    }
-}
-
-impl<'u> Serialize for UserWrapper<'u> {
-    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
-        let len = 3 + self.0.avatar.is_some() as usize + !self.0.bot as usize;
-        let mut user = s.serialize_struct("CachedUser", len)?;
-
-        if let Some(ref avatar) = self.0.avatar {
-            user.serialize_field("a", avatar)?;
-        }
-
-        if !self.0.bot {
-            user.serialize_field("b", &self.0.bot)?;
-        }
-
-        user.serialize_field("c", &self.0.discriminator)?;
-        user.serialize_field("d", &self.0.id)?;
-        user.serialize_field("e", &self.0.name)?;
-
-        user.end()
     }
 }
 
