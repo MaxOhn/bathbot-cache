@@ -4,13 +4,12 @@ use deadpool_redis::redis::{
     ErrorKind, FromRedisValue, RedisError, RedisResult, RedisWrite, ToRedisArgs, Value,
 };
 use twilight_model::{
-    guild::{Member, Role},
+    guild::Member,
     id::{ChannelId, GuildId, RoleId, UserId},
-    user::User,
 };
 
 use crate::constants::{
-    BOT_USER_KEY, CHANNEL_KEY, GUILD_KEY, MEMBER_KEY, ROLE_KEY, SESSIONS_KEY, SHARDS_KEY, USER_KEY,
+    BOT_USER_KEY, CHANNEL_KEY, GUILD_KEY, MEMBER_KEY, ROLE_KEY, SESSIONS_KEY, SHARDS_KEY,
 };
 
 use super::{BasicGuildChannel, CachedChannel, MemberWrapper};
@@ -35,9 +34,6 @@ pub enum RedisKey {
     },
     Sessions,
     Shards,
-    User {
-        user: UserId,
-    },
 }
 
 impl fmt::Display for RedisKey {
@@ -50,7 +46,6 @@ impl fmt::Display for RedisKey {
             Self::Role { role, .. } => write!(f, "{}:{}", ROLE_KEY, role),
             Self::Sessions => f.write_str(SESSIONS_KEY),
             Self::Shards => f.write_str(SHARDS_KEY),
-            Self::User { user } => write!(f, "{}:{}", USER_KEY, user),
         }
     }
 }
@@ -79,12 +74,6 @@ impl<'c> From<&BasicGuildChannel<'c>> for RedisKey {
     }
 }
 
-impl From<&User> for RedisKey {
-    fn from(user: &User) -> Self {
-        Self::User { user: user.id }
-    }
-}
-
 impl From<&Member> for RedisKey {
     fn from(member: &Member) -> Self {
         Self::Member {
@@ -103,11 +92,11 @@ impl<'m> From<&MemberWrapper<'m>> for RedisKey {
     }
 }
 
-impl From<(&Role, GuildId)> for RedisKey {
-    fn from((role, guild): (&Role, GuildId)) -> Self {
+impl From<(GuildId, RoleId)> for RedisKey {
+    fn from((guild, role): (GuildId, RoleId)) -> Self {
         Self::Role {
             guild: Some(guild),
-            role: role.id,
+            role,
         }
     }
 }
@@ -124,12 +113,6 @@ impl From<ChannelId> for RedisKey {
             guild: None,
             channel,
         }
-    }
-}
-
-impl From<UserId> for RedisKey {
-    fn from(user: UserId) -> Self {
-        Self::User { user }
     }
 }
 
@@ -207,17 +190,6 @@ impl FromRedisValue for RedisKey {
 
                     if let Some(Ok(role)) = parse {
                         return Ok(RedisKey::Role { guild: None, role });
-                    }
-                }
-                Some(USER_KEY) => {
-                    let parse = split
-                        .next()
-                        .map(str::parse)
-                        .map(|res| res.map(UserId))
-                        .filter(|_| split.next().is_none());
-
-                    if let Some(Ok(user)) = parse {
-                        return Ok(RedisKey::User { user });
                     }
                 }
                 _ => {}
