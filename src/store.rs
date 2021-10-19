@@ -83,7 +83,9 @@ impl Cache {
                     .filter_map(BasicGuildChannel::from)
                     .map(|channel| (RedisKey::from(&channel), channel));
 
-                self.set_all(channels).await?;
+                if !e.channels.is_empty() {
+                    self.set_all(channels).await?;
+                }
 
                 // Cache roles
                 let roles = e
@@ -91,7 +93,9 @@ impl Cache {
                     .iter()
                     .map(|role| (RedisKey::from((role, e.id)), RoleWrapper::from(role)));
 
-                self.set_all(roles).await?;
+                if !e.roles.is_empty() {
+                    self.set_all(roles).await?;
+                }
 
                 // Cache members
                 let members = e
@@ -99,7 +103,9 @@ impl Cache {
                     .iter()
                     .map(|member| (RedisKey::from(member), MemberWrapper::from(member)));
 
-                self.set_all(members).await?;
+                if !e.members.is_empty() {
+                    self.set_all(members).await?;
+                }
 
                 // Cache the guild itself
                 self.set(e.id.into(), GuildWrapper::from(&e.0)).await?;
@@ -158,14 +164,6 @@ impl Cache {
                 let keys = e
                     .members
                     .iter()
-                    .map(|member| UserWrapper::from(&member.user))
-                    .map(|user| (RedisKey::from(user.0.id), user));
-
-                self.set_all(keys).await?;
-
-                let keys = e
-                    .members
-                    .iter()
                     .map(MemberWrapper::from)
                     .map(|member| (RedisKey::from(&member), member));
 
@@ -210,16 +208,6 @@ impl Cache {
                 }
             }
             Event::ThreadListSync(e) => {
-                // Cache users
-                let keys = e
-                    .members
-                    .iter()
-                    .filter_map(|member| member.member.as_ref())
-                    .map(|member| UserWrapper::from(&member.user))
-                    .map(|user| (RedisKey::from(user.0.id), user));
-
-                self.set_all(keys).await?;
-
                 // Cache members
                 let keys = e
                     .members
@@ -228,7 +216,9 @@ impl Cache {
                     .map(MemberWrapper::from)
                     .map(|member| (RedisKey::from(&member), member));
 
-                self.set_all(keys).await?;
+                if !e.members.is_empty() {
+                    self.set_all(keys).await?;
+                }
 
                 // Cache channels
                 let keys = e
@@ -243,7 +233,9 @@ impl Cache {
                     })
                     .map(|channel| (RedisKey::from(&channel), channel));
 
-                self.set_all(keys).await?;
+                if !e.threads.is_empty() {
+                    self.set_all(keys).await?;
+                }
             }
             Event::ThreadMemberUpdate(e) => {
                 if let Some(member) = &e.member {
@@ -255,19 +247,12 @@ impl Cache {
                     .added_members
                     .iter()
                     .filter_map(|member| member.member.as_ref())
-                    .map(|member| UserWrapper::from(&member.user))
-                    .map(|user| (RedisKey::from(user.0.id), user));
-
-                self.set_all(keys).await?;
-
-                let keys = e
-                    .added_members
-                    .iter()
-                    .filter_map(|member| member.member.as_ref())
                     .map(MemberWrapper::from)
                     .map(|member| (RedisKey::from(&member), member));
 
-                self.set_all(keys).await?;
+                if !e.added_members.is_empty() {
+                    self.set_all(keys).await?;
+                }
             }
             Event::ThreadUpdate(e) => self.cache_channel(e).await?,
             Event::UserUpdate(e) => {
