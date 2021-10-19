@@ -101,24 +101,6 @@ pub struct CachedCurrentUser {
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
-pub struct CachedUser {
-    #[serde(default, rename = "a", skip_serializing_if = "Option::is_none")]
-    pub avatar: Option<String>,
-    #[serde(default, rename = "b", skip_serializing_if = "is_false")]
-    pub bot: bool,
-    #[serde(rename = "c")]
-    pub discriminator: String,
-    #[serde(rename = "d")]
-    pub id: UserId,
-    #[serde(rename = "e")]
-    pub name: String,
-}
-
-fn is_false(b: &bool) -> bool {
-    !b
-}
-
-#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct CachedMember {
     #[serde(rename = "a")]
     pub guild_id: GuildId,
