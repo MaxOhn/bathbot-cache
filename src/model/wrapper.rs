@@ -4,6 +4,7 @@ use twilight_model::{
         thread::{PrivateThread, PublicThread},
         GuildChannel, TextChannel,
     },
+    gateway::payload::MemberUpdate,
     guild::{Guild, Member, PartialGuild, PartialMember, Role},
     id::{ChannelId, GuildId},
     user::{CurrentUser, User},
@@ -166,6 +167,35 @@ impl<'m> Serialize for PartialMemberWrapper<'m> {
         }
 
         member.serialize_field("d", &self.user.id)?;
+
+        member.end()
+    }
+}
+
+pub struct MemberUpdateWrapper<'m>(&'m MemberUpdate);
+
+impl<'m> From<&'m MemberUpdate> for MemberUpdateWrapper<'m> {
+    fn from(member: &'m MemberUpdate) -> Self {
+        Self(member)
+    }
+}
+
+impl<'m> Serialize for MemberUpdateWrapper<'m> {
+    fn serialize<S: Serializer>(&self, s: S) -> Result<S::Ok, S::Error> {
+        let len = 2 + self.0.nick.is_some() as usize + !self.0.roles.is_empty() as usize;
+        let mut member = s.serialize_struct("CachedMember", len)?;
+
+        member.serialize_field("a", &self.0.guild_id)?;
+
+        if let Some(ref nick) = self.0.nick {
+            member.serialize_field("b", nick)?;
+        }
+
+        if !self.0.roles.is_empty() {
+            member.serialize_field("c", &self.0.roles)?;
+        }
+
+        member.serialize_field("d", &self.0.user.id)?;
 
         member.end()
     }

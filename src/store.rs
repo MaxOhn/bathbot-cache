@@ -15,8 +15,8 @@ use twilight_model::{
 use crate::{
     constants::{CHANNEL_KEYS, GUILD_KEYS, MEMBER_KEYS, ROLE_KEYS},
     model::{
-        BasicGuildChannel, CurrentUserWrapper, GuildWrapper, MemberWrapper, PartialGuildWrapper,
-        PartialMemberWrapper, RedisKey, RoleWrapper, SessionInfo,
+        BasicGuildChannel, CurrentUserWrapper, GuildWrapper, MemberUpdateWrapper, MemberWrapper,
+        PartialGuildWrapper, PartialMemberWrapper, RedisKey, RoleWrapper, SessionInfo,
     },
     CacheResult,
 };
@@ -147,19 +147,13 @@ impl Cache {
             Event::MemberAdd(e) => self.cache_member(e).await?,
             Event::MemberRemove(e) => self.del(RedisKey::from((e.guild_id, e.user.id))).await?,
             Event::MemberUpdate(e) => {
-                if let Some(mut member) = self.member(e.guild_id, e.user.id).await? {
-                    member.nick = e.nick.clone();
-                    member.roles = e.roles.clone();
-                    member.user_id = e.user.id;
-                    // I don't want to clone the String :/
-                    // member.username = e.user.name.to_owned();
-                    let key = RedisKey::from((e.guild_id, e.user.id));
+                let key = RedisKey::from((e.guild_id, e.user.id));
+                let member = MemberUpdateWrapper::from(e.as_ref());
 
-                    if let Some(ttl) = self.config.member_ttl {
-                        self.set_with_expire(key, member, ttl).await?;
-                    } else {
-                        self.set(key, member).await?;
-                    }
+                if let Some(ttl) = self.config.member_ttl {
+                    self.set_with_expire(key, member, ttl).await?;
+                } else {
+                    self.set(key, member).await?;
                 }
             }
             Event::MemberChunk(e) => {
