@@ -4,6 +4,7 @@ use std::fmt::Display;
 
 use deadpool_redis::{Config, Pool, PoolConfig};
 
+mod config;
 mod constants;
 mod error;
 mod fetch;
@@ -12,22 +13,24 @@ mod util;
 
 pub mod model;
 
+pub use config::CacheConfig;
 pub use error::{CacheError, CacheResult};
 
 pub struct Cache {
     redis: Pool,
+    config: CacheConfig,
 }
 
 impl Cache {
-    pub fn new(host: impl Display, port: impl Display) -> CacheResult<Self> {
-        let config = Config {
+    pub fn new(host: impl Display, port: impl Display, config: CacheConfig) -> CacheResult<Self> {
+        let redis_config = Config {
             url: Some(format!("redis://{}:{}", host, port)),
             connection: None,
             pool: Some(PoolConfig::new(4)),
         };
 
-        let redis = config.create_pool()?;
+        let redis = redis_config.create_pool()?;
 
-        Ok(Self { redis })
+        Ok(Self { redis, config })
     }
 }
