@@ -110,8 +110,6 @@ pub struct CachedMember {
     pub roles: Vec<RoleId>,
     #[serde(rename = "d")]
     pub user_id: UserId,
-    #[serde(rename = "e")]
-    pub username: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
