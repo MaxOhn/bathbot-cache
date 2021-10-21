@@ -128,7 +128,7 @@ impl Cache {
             };
 
             if let Some(member) = member {
-                self.text_channel_permissions(&mut permissions, user, guild, channel, member)
+                Self::text_channel_permissions(&mut permissions, user, guild, channel, member)
             }
         }
 
@@ -136,7 +136,6 @@ impl Cache {
     }
 
     fn text_channel_permissions(
-        &self,
         permissions: &mut Permissions,
         user: UserId,
         guild: GuildId,
