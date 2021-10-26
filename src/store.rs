@@ -347,7 +347,7 @@ impl Cache {
         }
 
         let mut conn = self.redis.get().await?;
-        conn.set_multiple(&keys).await?;
+        conn.set_multiple(keys).await?;
 
         for (key, _) in keys {
             conn.expire(key, seconds).await?;

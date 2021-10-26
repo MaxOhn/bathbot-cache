@@ -37,7 +37,7 @@ impl Cache {
             pool: Some(PoolConfig::new(4)),
         };
 
-        let redis = redis_config.create_pool()?;
+        let redis = redis_config.create_pool(None)?;
 
         Ok(Self { redis, config })
     }
