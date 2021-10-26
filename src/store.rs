@@ -24,6 +24,7 @@ use crate::{
 use super::Cache;
 
 impl Cache {
+    #[inline]
     pub async fn cache_channel(&self, channel: &Channel) -> CacheResult<()> {
         if let Channel::Guild(channel) = channel {
             if let Some(c) = BasicGuildChannel::from(channel) {
@@ -34,8 +35,15 @@ impl Cache {
         Ok(())
     }
 
+    #[inline]
     pub async fn cache_member(&self, member: &Member) -> CacheResult<()> {
-        self.set(member.into(), MemberWrapper::from(member)).await
+        let wrapper = MemberWrapper::from(member);
+
+        if let Some(ttl) = self.config.member_ttl {
+            self.set_with_expire(member.into(), wrapper, ttl).await
+        } else {
+            self.set(member.into(), wrapper).await
+        }
     }
 
     #[inline]
@@ -94,9 +102,18 @@ impl Cache {
                     let members = e
                         .members
                         .iter()
-                        .map(|member| (RedisKey::from(member), MemberWrapper::from(member)));
+                        .map(MemberWrapper::from)
+                        .map(|member| (RedisKey::from(&member), member));
 
-                    self.set_all(members).await?;
+                    if let Some(ttl) = self.config.member_ttl {
+                        let keys = members
+                            .map(|(key, member)| Ok((key, serde_cbor::to_vec(&member)?)))
+                            .collect::<Result<Vec<_>, CborError>>()?;
+
+                        self.set_all_with_expire(&keys, ttl).await?;
+                    } else {
+                        self.set_all(members).await?;
+                    }
                 }
 
                 // Cache the guild itself
@@ -118,7 +135,12 @@ impl Cache {
                     if let Some(user) = &member.user {
                         let key = RedisKey::from((guild, user.id));
                         let member = PartialMemberWrapper::from((member, guild, user));
-                        self.set(key, member).await?;
+
+                        if let Some(ttl) = self.config.member_ttl {
+                            self.set_with_expire(key, member, ttl).await?;
+                        } else {
+                            self.set(key, member).await?;
+                        }
                     }
                 }
             }
@@ -132,7 +154,12 @@ impl Cache {
                     // I don't want to clone the String :/
                     // member.username = e.user.name.to_owned();
                     let key = RedisKey::from((e.guild_id, e.user.id));
-                    self.set(key, member).await?;
+
+                    if let Some(ttl) = self.config.member_ttl {
+                        self.set_with_expire(key, member, ttl).await?;
+                    } else {
+                        self.set(key, member).await?;
+                    }
                 }
             }
             Event::MemberChunk(e) => {
@@ -142,13 +169,26 @@ impl Cache {
                     .map(MemberWrapper::from)
                     .map(|member| (RedisKey::from(&member), member));
 
-                self.set_all(keys).await?;
+                if let Some(ttl) = self.config.member_ttl {
+                    let keys = keys
+                        .map(|(key, member)| Ok((key, serde_cbor::to_vec(&member)?)))
+                        .collect::<Result<Vec<_>, CborError>>()?;
+
+                    self.set_all_with_expire(&keys, ttl).await?;
+                } else {
+                    self.set_all(keys).await?;
+                }
             }
             Event::MessageCreate(e) => {
                 if let (Some(member), Some(guild)) = (&e.member, e.guild_id) {
                     let key = RedisKey::from((guild, e.author.id));
                     let member = PartialMemberWrapper::from((member, guild, &e.author));
-                    self.set(key, member).await?;
+
+                    if let Some(ttl) = self.config.member_ttl {
+                        self.set_with_expire(key, member, ttl).await?;
+                    } else {
+                        self.set(key, member).await?;
+                    }
                 }
             }
             Event::ReactionAdd(e) => {
@@ -186,7 +226,15 @@ impl Cache {
                         .map(MemberWrapper::from)
                         .map(|member| (RedisKey::from(&member), member));
 
-                    self.set_all(keys).await?;
+                    if let Some(ttl) = self.config.member_ttl {
+                        let keys = keys
+                            .map(|(key, member)| Ok((key, serde_cbor::to_vec(&member)?)))
+                            .collect::<Result<Vec<_>, CborError>>()?;
+
+                        self.set_all_with_expire(&keys, ttl).await?;
+                    } else {
+                        self.set_all(keys).await?;
+                    }
                 }
 
                 // Cache channels
@@ -220,7 +268,15 @@ impl Cache {
                         .map(MemberWrapper::from)
                         .map(|member| (RedisKey::from(&member), member));
 
-                    self.set_all(keys).await?;
+                    if let Some(ttl) = self.config.member_ttl {
+                        let keys = keys
+                            .map(|(key, member)| Ok((key, serde_cbor::to_vec(&member)?)))
+                            .collect::<Result<Vec<_>, CborError>>()?;
+
+                        self.set_all_with_expire(&keys, ttl).await?;
+                    } else {
+                        self.set_all(keys).await?;
+                    }
                 }
             }
             Event::ThreadUpdate(e) => self.cache_channel(e).await?,
@@ -265,6 +321,36 @@ impl Cache {
 
         for (key, value) in members {
             conn.sadd(key.as_ref(), value).await?;
+        }
+
+        Ok(())
+    }
+
+    async fn set_with_expire<T>(&self, key: RedisKey, value: T, seconds: usize) -> CacheResult<()>
+    where
+        T: Serialize,
+    {
+        let bytes = serde_cbor::to_vec(&value)?;
+        let mut conn = self.redis.get().await?;
+        conn.set_ex(key, bytes, seconds).await?;
+
+        Ok(())
+    }
+
+    async fn set_all_with_expire(
+        &self,
+        keys: &[(RedisKey, Vec<u8>)],
+        seconds: usize,
+    ) -> CacheResult<()> {
+        if keys.is_empty() {
+            return Ok(());
+        }
+
+        let mut conn = self.redis.get().await?;
+        conn.set_multiple(&keys).await?;
+
+        for (key, _) in keys {
+            conn.expire(key, seconds).await?;
         }
 
         Ok(())

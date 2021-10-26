@@ -1,8 +1,10 @@
+mod config;
 mod redis_key;
 mod wrapper;
 
 use std::{iter::FilterMap, vec::IntoIter};
 
+pub use config::CacheConfig;
 pub use redis_key::RedisKey;
 pub(crate) use wrapper::*;
 
