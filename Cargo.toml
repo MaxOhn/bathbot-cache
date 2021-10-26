@@ -9,4 +9,5 @@ deadpool-redis = { version = "0.10", default-features = false, features = ["rt_t
 hashbrown = { version = "0.11", default-features = false, features = ["ahash", "inline-more", "serde"] }
 serde = { version = "1.0", default-features = false }
 serde_cbor = { version = "0.11", default-features = false, features = ["std"] }
+thiserror = { version = "1.0" }
 twilight-model = { version = "0.6", default-features = false }

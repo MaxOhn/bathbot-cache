@@ -1,63 +1,19 @@
-use std::{error::Error, fmt};
-
 use deadpool_redis::{redis::RedisError, CreatePoolError, PoolError};
 use serde_cbor::Error as CborError;
+use thiserror::Error;
 
 pub type CacheResult<T> = Result<T, CacheError>;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum CacheError {
-    Cbor(CborError),
-    CreatePool(CreatePoolError),
+    #[error("cbor error")]
+    Cbor(#[from] CborError),
+    #[error("failed to create redis pool")]
+    CreatePool(#[from] CreatePoolError),
+    #[error("guild is not cached")]
     MissingGuild,
-    Pool(PoolError),
-    Redis(RedisError),
-}
-
-impl fmt::Display for CacheError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Cbor(_) => f.write_str("cbor error"),
-            Self::CreatePool(_) => f.write_str("failed to create redis pool"),
-            Self::MissingGuild => f.write_str("guild is not cached"),
-            Self::Pool(_) => f.write_str("redis pool error"),
-            Self::Redis(_) => f.write_str("redis error"),
-        }
-    }
-}
-
-impl Error for CacheError {
-    fn source(&self) -> Option<&(dyn Error + 'static)> {
-        match self {
-            Self::Cbor(e) => Some(e),
-            Self::CreatePool(e) => Some(e),
-            Self::MissingGuild => None,
-            Self::Pool(e) => Some(e),
-            Self::Redis(e) => Some(e),
-        }
-    }
-}
-
-impl From<CborError> for CacheError {
-    fn from(e: CborError) -> Self {
-        Self::Cbor(e)
-    }
-}
-
-impl From<CreatePoolError> for CacheError {
-    fn from(e: CreatePoolError) -> Self {
-        Self::CreatePool(e)
-    }
-}
-
-impl From<PoolError> for CacheError {
-    fn from(e: PoolError) -> Self {
-        Self::Pool(e)
-    }
-}
-
-impl From<RedisError> for CacheError {
-    fn from(e: RedisError) -> Self {
-        Self::Redis(e)
-    }
+    #[error("redis pool error")]
+    Pool(#[from] PoolError),
+    #[error("redis error")]
+    Redis(#[from] RedisError),
 }
