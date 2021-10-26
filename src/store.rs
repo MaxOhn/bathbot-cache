@@ -40,7 +40,8 @@ impl Cache {
         let wrapper = MemberWrapper::from(member);
 
         if let Some(ttl) = self.config.member_ttl {
-            self.set_with_expire(member.into(), wrapper, ttl).await
+            self.set_with_expire(RedisKey::from(member), wrapper, ttl)
+                .await
         } else {
             self.set(member.into(), wrapper).await
         }
@@ -48,7 +49,7 @@ impl Cache {
 
     #[inline]
     pub async fn cache_role(&self, role: &Role, guild: GuildId) -> CacheResult<()> {
-        self.set((guild, role.id).into(), RoleWrapper::from(role))
+        self.set(RedisKey::from((guild, role.id)), RoleWrapper::from(role))
             .await
     }
 
@@ -59,7 +60,8 @@ impl Cache {
 
     #[inline]
     pub async fn cache_sessions(&self, sessions: &HashMap<u64, SessionInfo>) -> CacheResult<()> {
-        self.set(RedisKey::Sessions, sessions).await
+        self.set_with_expire(RedisKey::Sessions, sessions, 300)
+            .await
     }
 
     pub async fn update(&self, event: &Event) -> CacheResult<()> {
