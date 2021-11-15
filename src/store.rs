@@ -15,8 +15,8 @@ use twilight_model::{
 use crate::{
     constants::{CHANNEL_KEYS, GUILD_KEYS, MEMBER_KEYS, ROLE_KEYS},
     model::{
-        BasicGuildChannel, CurrentUserWrapper, GuildWrapper, MemberUpdateWrapper, MemberWrapper,
-        PartialGuildWrapper, PartialMemberWrapper, RedisKey, RoleWrapper, SessionInfo,
+        BasicGuildChannel, GuildWrapper, MemberUpdateWrapper, MemberWrapper, PartialGuildWrapper,
+        PartialMemberWrapper, RedisKey, RoleWrapper, SessionInfo,
     },
     CacheResult,
 };
@@ -197,9 +197,10 @@ impl Cache {
                     self.cache_member(member).await?;
                 }
             }
-            Event::Ready(e) => {
-                self.set(RedisKey::BotUser, CurrentUserWrapper::from(&e.user))
-                    .await?;
+            Event::Ready(_e) => {
+                // * Handled in bot context instead
+                // self.set(RedisKey::BotUser, CurrentUserWrapper::from(&e.user))
+                //     .await?;
             }
             Event::RoleCreate(e) => self.cache_role(&e.role, e.guild_id).await?,
             Event::RoleDelete(e) => self.del(RedisKey::from((e.guild_id, e.role_id))).await?,
@@ -276,9 +277,10 @@ impl Cache {
                 }
             }
             Event::ThreadUpdate(e) => self.cache_channel(e).await?,
-            Event::UserUpdate(e) => {
-                self.set(RedisKey::BotUser, CurrentUserWrapper::from(&e.0))
-                    .await?
+            Event::UserUpdate(_e) => {
+                // * Handled in bot context instead
+                // self.set(RedisKey::BotUser, CurrentUserWrapper::from(&e.0))
+                //     .await?
             }
             _ => {}
         }
@@ -328,7 +330,13 @@ impl Cache {
     {
         let bytes = serde_cbor::to_vec(&value)?;
         let mut conn = self.redis.get().await?;
-        conn.set_ex(key, bytes, seconds).await?;
+
+        // Don't expire the cached member data of the bot itself
+        if key.user_id().filter(|id| id == &self.bot_id).is_none() {
+            conn.set_ex(key, bytes, seconds).await?;
+        } else {
+            conn.set(key, bytes).await?;
+        }
 
         Ok(())
     }
@@ -346,7 +354,10 @@ impl Cache {
         conn.set_multiple(keys).await?;
 
         for (key, _) in keys {
-            conn.expire(key, seconds).await?;
+            // Don't expire the cached member data of the bot itself
+            if key.user_id().filter(|id| id == &self.bot_id).is_none() {
+                conn.expire(key, seconds).await?;
+            }
         }
 
         Ok(())

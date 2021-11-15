@@ -14,7 +14,7 @@ use crate::constants::{
 
 use super::{BasicGuildChannel, CachedChannel, MemberWrapper};
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub enum RedisKey {
     BotUser,
     Channel {
@@ -34,6 +34,16 @@ pub enum RedisKey {
     },
     Sessions,
     Shards,
+}
+
+impl RedisKey {
+    pub(crate) fn user_id(&self) -> Option<UserId> {
+        if let RedisKey::Member { user, .. } = self {
+            Some(*user)
+        } else {
+            None
+        }
+    }
 }
 
 impl fmt::Display for RedisKey {

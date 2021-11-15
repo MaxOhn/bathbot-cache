@@ -4,7 +4,7 @@ use twilight_model::{
         thread::{PrivateThread, PublicThread},
         GuildChannel, TextChannel,
     },
-    gateway::payload::MemberUpdate,
+    gateway::payload::incoming::MemberUpdate,
     guild::{Guild, Member, PartialGuild, PartialMember, Role},
     id::{ChannelId, GuildId},
     user::{CurrentUser, User},

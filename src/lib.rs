@@ -15,20 +15,23 @@ pub mod model;
 use model::CacheConfig;
 
 pub use error::{CacheError, CacheResult};
+use twilight_model::id::UserId;
 
 pub struct Cache {
     redis: Pool,
     config: CacheConfig,
+    bot_id: UserId,
 }
 
 impl Cache {
-    pub fn new(host: impl Display, port: impl Display) -> CacheResult<Self> {
-        Self::with_config(host, port, CacheConfig::default())
+    pub fn new(host: impl Display, port: impl Display, bot_id: UserId) -> CacheResult<Self> {
+        Self::with_config(host, port, bot_id, CacheConfig::default())
     }
 
     pub fn with_config(
         host: impl Display,
         port: impl Display,
+        bot_id: UserId,
         config: CacheConfig,
     ) -> CacheResult<Self> {
         let redis_config = Config {
@@ -39,6 +42,10 @@ impl Cache {
 
         let redis = redis_config.create_pool(None)?;
 
-        Ok(Self { redis, config })
+        Ok(Self {
+            redis,
+            config,
+            bot_id,
+        })
     }
 }

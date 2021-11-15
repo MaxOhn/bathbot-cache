@@ -1,13 +1,16 @@
+use std::borrow::Cow;
+
 use deadpool_redis::redis::AsyncCommands;
 use twilight_model::{
-    channel::permission_overwrite::PermissionOverwriteType,
-    guild::Permissions,
-    id::{ChannelId, GuildId, UserId},
+    channel::permission_overwrite::PermissionOverwriteType, guild::Permissions, id::UserId,
 };
 
 use crate::{
     constants::{CHANNEL_KEYS, GUILD_KEYS, MEMBER_KEYS, OWNER_USER_ID, ROLE_KEYS},
-    model::{CacheStats, CachedChannel, CachedMember, CachedTextChannel, MemberLookup, RedisKey},
+    model::{
+        CacheStats, CachedChannel, CachedMember, CachedTextChannel, ChannelOrId, GuildOrId,
+        MemberLookup, RedisKey,
+    },
     CacheError, CacheResult,
 };
 
@@ -15,10 +18,15 @@ use super::Cache;
 
 impl Cache {
     #[inline]
-    pub async fn is_guild_owner(&self, guild: GuildId, user: UserId) -> CacheResult<bool> {
-        let guild = self.guild(guild).await?.ok_or(CacheError::MissingGuild)?;
+    pub async fn is_guild_owner(&self, guild: &GuildOrId, user: UserId) -> CacheResult<bool> {
+        match guild {
+            GuildOrId::Guild(guild) => Ok(guild.owner_id == user),
+            GuildOrId::Id(id) => {
+                let guild = self.guild(*id).await?.ok_or(CacheError::MissingGuild)?;
 
-        Ok(guild.owner_id == user)
+                Ok(guild.owner_id == user)
+            }
+        }
     }
 
     #[inline]
@@ -42,9 +50,9 @@ impl Cache {
     pub async fn get_guild_permissions(
         &self,
         user: UserId,
-        guild: GuildId,
+        guild: &GuildOrId,
     ) -> CacheResult<(Permissions, MemberLookup)> {
-        if user.0 == OWNER_USER_ID {
+        if user.get() == OWNER_USER_ID {
             return Ok((Permissions::all(), MemberLookup::NotChecked));
         }
 
@@ -57,7 +65,7 @@ impl Cache {
             Err(err) => return Err(err),
         }
 
-        let member = match self.member(guild, user).await? {
+        let member = match self.member(guild.id(), user).await? {
             Some(member) => member,
             None => return Ok((Permissions::empty(), MemberLookup::NotFound)),
         };
@@ -80,8 +88,8 @@ impl Cache {
     pub async fn get_channel_permissions(
         &self,
         user: UserId,
-        channel: ChannelId,
-        guild: Option<GuildId>,
+        channel: &ChannelOrId,
+        guild: Option<&GuildOrId>,
     ) -> CacheResult<Permissions> {
         let guild = if let Some(guild) = guild {
             guild
@@ -103,27 +111,12 @@ impl Cache {
             return Ok(Permissions::all());
         }
 
-        let channel = match self.channel(channel).await? {
-            Some(CachedChannel::Text(channel)) => Some(channel),
-            Some(CachedChannel::PrivateThread(thread))
-            | Some(CachedChannel::PublicThread(thread)) => {
-                if let Some(parent) = thread.parent_id {
-                    if let Some(CachedChannel::Text(channel)) = self.channel(parent).await? {
-                        Some(channel)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        };
+        let channel = self.extract_channel(channel).await?;
 
         if let Some(channel) = channel {
             let member = match member {
                 MemberLookup::Found(member) => Some(member),
-                MemberLookup::NotChecked => self.member(guild, user).await?,
+                MemberLookup::NotChecked => self.member(guild.id(), user).await?,
                 MemberLookup::NotFound => None,
             };
 
@@ -135,11 +128,41 @@ impl Cache {
         Ok(permissions)
     }
 
+    async fn extract_channel<'c>(
+        &self,
+        channel: &'c ChannelOrId,
+    ) -> CacheResult<Option<Cow<'c, CachedTextChannel>>> {
+        let id = match channel {
+            ChannelOrId::Channel(CachedChannel::Text(channel)) => {
+                return Ok(Some(Cow::Borrowed(channel)))
+            }
+            ChannelOrId::Channel(
+                CachedChannel::PrivateThread(channel) | CachedChannel::PublicThread(channel),
+            ) => channel.id,
+            ChannelOrId::Id(id) => *id,
+        };
+
+        match self.channel(id).await? {
+            Some(CachedChannel::Text(c)) => return Ok(Some(Cow::Owned(c))),
+            Some(CachedChannel::PrivateThread(thread))
+            | Some(CachedChannel::PublicThread(thread)) => {
+                if let Some(parent) = thread.parent_id {
+                    if let Some(CachedChannel::Text(channel)) = self.channel(parent).await? {
+                        return Ok(Some(Cow::Owned(channel)));
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        Ok(None)
+    }
+
     fn text_channel_permissions(
         permissions: &mut Permissions,
         user: UserId,
-        guild: GuildId,
-        channel: CachedTextChannel,
+        guild: &GuildOrId,
+        channel: Cow<'_, CachedTextChannel>,
         member: CachedMember,
     ) {
         let mut everyone_allowed = Permissions::empty();
@@ -158,7 +181,7 @@ impl Cache {
                     }
                 }
                 PermissionOverwriteType::Role(role) => {
-                    if role.0 == guild.0 {
+                    if role.0 == guild.id().0 {
                         everyone_allowed |= overwrite.allow;
                         everyone_denied |= overwrite.deny
                     } else if member.roles.contains(&role) {

@@ -1,10 +1,8 @@
-mod config;
 mod redis_key;
 mod wrapper;
 
 use std::{iter::FilterMap, vec::IntoIter};
 
-pub use config::CacheConfig;
 pub use redis_key::RedisKey;
 pub(crate) use wrapper::*;
 
@@ -90,12 +88,12 @@ pub struct CachedGuild {
     pub owner_id: UserId,
 }
 
-#[derive(Clone, Default, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
 pub struct CachedCurrentUser {
     #[serde(default, rename = "a", skip_serializing_if = "Option::is_none")]
     pub avatar: Option<String>,
     #[serde(rename = "b")]
-    pub discriminator: String,
+    pub discriminator: u16,
     #[serde(rename = "c")]
     pub id: UserId,
     #[serde(rename = "d")]
@@ -174,4 +172,53 @@ pub enum MemberLookup {
     Found(CachedMember),
     NotChecked,
     NotFound,
+}
+
+pub enum GuildOrId {
+    Guild(CachedGuild),
+    Id(GuildId),
+}
+
+impl GuildOrId {
+    pub fn id(&self) -> GuildId {
+        match self {
+            Self::Guild(guild) => guild.id,
+            Self::Id(id) => *id,
+        }
+    }
+}
+
+impl From<CachedGuild> for GuildOrId {
+    fn from(guild: CachedGuild) -> Self {
+        Self::Guild(guild)
+    }
+}
+
+impl From<GuildId> for GuildOrId {
+    fn from(id: GuildId) -> Self {
+        Self::Id(id)
+    }
+}
+
+pub enum ChannelOrId {
+    Channel(CachedChannel),
+    Id(ChannelId),
+}
+
+impl From<CachedChannel> for ChannelOrId {
+    fn from(channel: CachedChannel) -> Self {
+        Self::Channel(channel)
+    }
+}
+
+impl From<ChannelId> for ChannelOrId {
+    fn from(id: ChannelId) -> Self {
+        Self::Id(id)
+    }
+}
+
+#[derive(Default)]
+pub struct CacheConfig {
+    /// Specifies the Time-To-Live in seconds for cached members until they expire
+    pub member_ttl: Option<usize>,
 }
