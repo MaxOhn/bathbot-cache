@@ -128,6 +128,7 @@ impl Cache {
         Ok(permissions)
     }
 
+    #[allow(clippy::needless_lifetimes)]
     async fn extract_channel<'c>(
         &self,
         channel: &'c ChannelOrId,
